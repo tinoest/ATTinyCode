@@ -32,58 +32,26 @@ ISR(WDT_vect) {
 #define STX_DDR         DDRA
 #define STX_BIT         7 // Which port on PORTB to use 0 = D8 , 1 = D9 , 2 = D10
 
+#define TMP_OFFSET      7
+
+//#define DEBUG
+
 int counter;
 
 typedef struct {
   int counter;
+  int tmpC;
   int supplyV;	// Supply voltage
 } 
 Payload;
 
 Payload temptx;
 
-// Serial Functions Start
-
-void sputchar( uint8_t c )
-{
-  c = ~c;
-  STX_PORT &= ~(1<<STX_BIT);            // start bit
-  for( uint8_t i = 10; i; i-- ){        // 10 bits
-    _delay_us( 1e6 / BAUD );            // bit duration
-    if( c & 1 )
-      STX_PORT &= ~(1<<STX_BIT);        // data bit 0
-    else
-      STX_PORT |= 1<<STX_BIT;           // data bit 1 or stop bit
-    c >>= 1;
-  }
-} 
-
-void sputs (int num) {
-
-  char buf[10];
-  itoa(10,buf,num);
-  sputs(buf);
-
-}
-
-void sputs(const void *s ) {
-  uint8_t *s1 = (uint8_t*)s;
-  while( *s1 )
-    sputchar( *s1++ );
-}
-
-void sinit() {
-
-  STX_PORT |= 1<<STX_BIT;
-  STX_DDR |= 1<<STX_BIT; 
-
-}
-
-// Serial Functions End
-
 void setup() {
 
+#if defined(DEBUG)
   sinit();
+#endif
   rf12_initialize(myNodeID,freq,network); // Initialize RFM12 with settings defined above 
   rf12_sleep(0);                          // Put the RFM12 to sleep
 
@@ -100,36 +68,18 @@ void loop() {
 
   temptx.counter = (counter); // Get temperature reading and convert to integer, reversed at receiving end
   temptx.supplyV = readVcc(); // Get supply voltage
+  temptx.tmpC    = readTmpC();
 
-  //char tmp[25];
-  //sprintf(tmp,"Supply %i", temptx.supplyV);
-  //sputs(tmp);
-  //sputs("\n");
+#if defined(DEBUG)
+  char tmp[50];
+  sprintf(tmp,"Count %i Supply %i TmpC %i\n", counter , temptx.supplyV , temptx.tmpC);
+  sputs(tmp);
+#endif
 
   rfwrite(); // Send data via RF 
 
   Sleepy::loseSomeTime(10000); //JeeLabs power save function: enter low power mode for 10 seconds (valid range 16-65000 ms)
 }
-
-//--------------------------------------------------------------------------------------------------
-// Read current supply voltage
-//--------------------------------------------------------------------------------------------------
-long readVcc() {
-  bitClear(PRR, PRADC); 
-  ADCSRA |= bit(ADEN); // Enable the ADC
-  long result;
-  // Read 1.1V reference against Vcc
-  ADMUX = _BV(MUX5) | _BV(MUX0); // For ATtiny84
-  delay(2); // Wait for Vref to settle
-  ADCSRA |= _BV(ADSC); // Convert
-  while (bit_is_set(ADCSRA,ADSC));
-  result = ADCL;
-  result |= ADCH<<8;
-  result = 1126400L / result; // Back-calculate Vcc in mV
-  ADCSRA &= ~ bit(ADEN); 
-  bitSet(PRR, PRADC); // Disable the ADC to save power
-  return result;
-} 
 
 // Wait a few milliseconds for proper ACK
 #ifdef USE_ACK
@@ -175,7 +125,80 @@ static void rfwrite(){
 #endif
 }
 
+//--------------------------------------------------------------------------------------------------
+// Read current supply voltage
+//--------------------------------------------------------------------------------------------------
+long readVcc() {
+  bitClear(PRR, PRADC); 
+  ADCSRA |= bit(ADEN); // Enable the ADC
+  long result;
+  // Read 1.1V reference against Vcc
+  ADMUX = _BV(MUX5) | _BV(MUX0); // For ATtiny84
+  delay(2); // Wait for Vref to settle
+  ADCSRA |= _BV(ADSC); // Convert
+  while (bit_is_set(ADCSRA,ADSC));
+  result = ADCL;
+  result |= ADCH<<8;
+  result = 1126400L / result; // Back-calculate Vcc in mV
+  ADCSRA &= ~ bit(ADEN); 
+  bitSet(PRR, PRADC); // Disable the ADC to save power
+  return result;
+} 
 
 
+//--------------------------------------------------------------------------------------------------
+// Read Internal Temperature , Return in Degree C
+//--------------------------------------------------------------------------------------------------
+long readTmpC() {
+  bitClear(PRR, PRADC); 
+  ADCSRA |= bit(ADEN); // Enable the ADC
+  long result;
+  ADMUX = B00100010;                        // Select temperature sensor
+  ADMUX &= ~_BV( ADLAR );                   // Right-adjust result
+  ADMUX |= _BV( REFS1 );                    // Set Ref voltage
+  ADMUX &= ~( _BV( REFS0 ) );               // to 1.1V
+  // Configure ADCSRA
+  ADCSRA &= ~( _BV( ADATE ) |_BV( ADIE ) ); // Disable autotrigger, Disable Interrupt
+  ADCSRA |= _BV(ADEN);                      // Enable ADC
+  delay(2);
+  ADCSRA |= _BV(ADSC); // Convert
+  while (bit_is_set(ADCSRA,ADSC));
+  result = ADCL;
+  result |= ADCH<<8;
+  ADCSRA &= ~ bit(ADEN); 
+  bitSet(PRR, PRADC); // Disable the ADC to save power
+  return result - 273 + TMP_OFFSET;
+} 
 
+// Serial Functions Start
+#if defined(DEBUG)
 
+void sputchar( uint8_t c )
+{
+  c = ~c;
+  STX_PORT &= ~(1<<STX_BIT);            // start bit
+  for( uint8_t i = 10; i; i-- ){        // 10 bits
+    _delay_us( 1e6 / BAUD );            // bit duration
+    if( c & 1 )
+      STX_PORT &= ~(1<<STX_BIT);        // data bit 0
+    else
+      STX_PORT |= 1<<STX_BIT;           // data bit 1 or stop bit
+    c >>= 1;
+  }
+} 
+
+void sputs(const void *s ) {
+  uint8_t *s1 = (uint8_t*)s;
+  while( *s1 )
+    sputchar( *s1++ );
+}
+
+void sinit() {
+
+  STX_PORT |= 1<<STX_BIT;
+  STX_DDR |= 1<<STX_BIT; 
+
+}
+
+#endif
+// Serial Functions End
