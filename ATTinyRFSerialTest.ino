@@ -38,7 +38,7 @@
 #define network 210      // RF12 Network group
 #define freq RF12_433MHZ // Frequency of RFM12B module
 
-#define USE_ACK           // Enable ACKs, comment out to disable
+//#define USE_ACK           // Enable ACKs, comment out to disable
 #define RETRY_PERIOD 5    // How soon to retry (in seconds) if ACK didn't come in
 #define RETRY_LIMIT 5     // Maximum number of times to retry
 #define ACK_TIME 10       // Number of milliseconds to wait for an ack
@@ -70,12 +70,12 @@ void setup() {
   sinit();
 #endif
 
-  rf12_initialize(myNodeID,freq,network); // Initialize RFM12 with settings defined above 
-  rf12_sleep(0);                          // Put the RFM12 to sleep
-  PRR = bit(PRTIM1); // only keep timer 0 going
+  rf12_initialize(myNodeID,freq,network);  // Initialize RFM12 with settings defined above 
+  rf12_sleep(0);                           // Put the RFM12 to sleep
+  PRR = bit(PRTIM1);                       // only keep timer 0 going
   ADCSRA &= ~ bit(ADEN); 
-  bitSet(PRR, PRADC); // Disable the ADC to save power
-  setup_watchdog(7);
+  bitSet(PRR, PRADC);                      // Disable the ADC to save power
+  setup_watchdog(6);
 
 }
 
@@ -100,13 +100,12 @@ void loop() {
 //--------------------------------------------------------------------------------------------------
 // Sleep Configuration 
 //-------------------------------------------------------------------------------------------------
-// 0=16ms, 1=32ms,2=64ms,3=128ms,4=250ms,5=500ms
-// 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
-void setup_watchdog(int sleepMode) {
+// 0=16ms, 1=32ms,2=64ms,3=128ms,4=250ms,5=500ms,6=1 sec,7=2 sec, 8=4 sec, 9=8 sec
+void setup_watchdog(uint8_t sleepMode) {
 
   byte sleepByte;
-  if (sleepMode > 9 ) sleepMode=9;
-  sleepByte = sleepMode & 7;
+  if (sleepMode > 9 ) sleepMode = 9;
+  sleepByte = sleepMode & 0x07;
   if (sleepMode > 7) sleepByte |= (1<<5);
   sleepByte |= (1<<WDCE);
 
@@ -119,18 +118,19 @@ void setup_watchdog(int sleepMode) {
 
 void sleep(uint8_t sleepTime) {
 
-  while(watchdog_counter++ < sleepTime) {
+  do {
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);             // select the watchdog timer mode
     sleep_enable();                                  // enable the sleep mode ready for use
     sleep_mode();                                    // trigger the sleep
     sleep_disable();                                 // prevent further sleeps 
-  }
-  watchdog_counter = 0;
+  } while(watchdogCounter < sleepTime);
+  
+  watchdogCounter = 0;
 
 }
 
 ISR(WDT_vect) {
-  watchdog_counter++;
+  watchdogCounter++;
 }
 
 
@@ -256,6 +256,14 @@ void sinit() {
 #endif
 // Serial Functions End
 
+//--------------------------------------------------------------------------------------------------
+// Free Available Memory Function
+//--------------------------------------------------------------------------------------------------
+int freeMemory() {
+  extern int __heap_start, *__brkval; 
+  int v; 
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
+}
 
 
 
