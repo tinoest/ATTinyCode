@@ -1,26 +1,22 @@
 /*
-#include <SoftwareSerial.h>
- #include <util/delay.h>
- #define rxPin 7 //PA3
- #define txPin 3 //PA7
- */
+                 +-\/-+
+           VCC  1|    |14  GND
+      (D0) PB0  2|    |13  AREF (D10)
+      (D1) PB1  3|    |12  PA1 (D9)
+         RESET  4|    |11  PA2 (D8)
+ INT0 (D2) PB2  5|    |10  PA3 (D7)
+  PWM (D3) PA7  6|    |9   PA4 (D6)
+  PWM (D4) PA6  7|    |8   PA5 (D5) PWM
+                 +----+
+*/
 
-/*
-                     +-\/-+
- VCC  1|    |14  GND
- (D0) PB0  2|    |13  AREF (D10)
- (D1) PB1  3|    |12  PA1 (D9)
- RESET  4|    |11  PA2 (D8)
- INT0  PWM (D2) PB2  5|    |10  PA3 (D7)
- PWM (D3) PA7  6|    |9   PA4 (D6)
- PWM (D4) PA6  7|    |8   PA5 (D5) PWM
- +----+
- */
 #include <stdlib.h>
 #include <util/delay.h>
 #include <JeeLib.h> // https://github.com/jcw/jeelib
 
-ISR(WDT_vect) { Sleepy::watchdogEvent(); } // interrupt handler for JeeLabs Sleepy power saving
+ISR(WDT_vect) { 
+  Sleepy::watchdogEvent(); 
+} // interrupt handler for JeeLabs Sleepy power saving
 
 #define myNodeID 8     // RF12 node ID in the range 1-30
 #define network 210      // RF12 Network group
@@ -99,17 +95,17 @@ void setup() {
 }
 
 void loop() {
-  
+
   counter++;
 
   temptx.counter = (counter); // Get temperature reading and convert to integer, reversed at receiving end
   temptx.supplyV = readVcc(); // Get supply voltage
-  
+
   //char tmp[25];
   //sprintf(tmp,"Supply %i", temptx.supplyV);
   //sputs(tmp);
   //sputs("\n");
-  
+
   rfwrite(); // Send data via RF 
 
   Sleepy::loseSomeTime(10000); //JeeLabs power save function: enter low power mode for 10 seconds (valid range 16-65000 ms)
@@ -118,19 +114,21 @@ void loop() {
 //--------------------------------------------------------------------------------------------------
 // Read current supply voltage
 //--------------------------------------------------------------------------------------------------
- long readVcc() {
-   bitClear(PRR, PRADC); ADCSRA |= bit(ADEN); // Enable the ADC
-   long result;
-   // Read 1.1V reference against Vcc
-   ADMUX = _BV(MUX5) | _BV(MUX0); // For ATtiny84
-   delay(2); // Wait for Vref to settle
-   ADCSRA |= _BV(ADSC); // Convert
-   while (bit_is_set(ADCSRA,ADSC));
-   result = ADCL;
-   result |= ADCH<<8;
-   result = 1126400L / result; // Back-calculate Vcc in mV
-   ADCSRA &= ~ bit(ADEN); bitSet(PRR, PRADC); // Disable the ADC to save power
-   return result;
+long readVcc() {
+  bitClear(PRR, PRADC); 
+  ADCSRA |= bit(ADEN); // Enable the ADC
+  long result;
+  // Read 1.1V reference against Vcc
+  ADMUX = _BV(MUX5) | _BV(MUX0); // For ATtiny84
+  delay(2); // Wait for Vref to settle
+  ADCSRA |= _BV(ADSC); // Convert
+  while (bit_is_set(ADCSRA,ADSC));
+  result = ADCL;
+  result |= ADCH<<8;
+  result = 1126400L / result; // Back-calculate Vcc in mV
+  ADCSRA &= ~ bit(ADEN); 
+  bitSet(PRR, PRADC); // Disable the ADC to save power
+  return result;
 } 
 
 // Wait a few milliseconds for proper ACK
@@ -176,6 +174,7 @@ static void rfwrite(){
   return;
 #endif
 }
+
 
 
 
