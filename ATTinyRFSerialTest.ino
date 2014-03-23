@@ -1,22 +1,38 @@
 /*
-                 +-\/-+
-           VCC  1|    |14  GND
-      (D0) PB0  2|    |13  AREF (D10)
-      (D1) PB1  3|    |12  PA1 (D9)
-         RESET  4|    |11  PA2 (D8)
- INT0 (D2) PB2  5|    |10  PA3 (D7)
-  PWM (D3) PA7  6|    |9   PA4 (D6)
-  PWM (D4) PA6  7|    |8   PA5 (D5) PWM
-                 +----+
+       +-\/-+
+ VCC  1|    |14  GND
+ PB0  2|    |13  AREF 
+ PB1  3|    |12  PA1 
+ RST  4|    |11  PA2 
+ PB2  5|    |10  PA3 
+ PA7  6|    |9   PA4 
+ PA6  7|    |8   PA5
+       +----+
+       
+ Watchdog Timer Prescale Select
+ 
+ WDP3   WDP2 WDP1 WDP0   Number of WDT     Typical Time-out at Oscillator Cycles     VCC = 5.0V
+ 
+ 0    0    0      0             2K (2048) cycles       16 ms
+ 0    0    0      1             4K (4096) cycles       32 ms
+ 0    0    1      0             8K (8192) cycles       64 ms
+ 0    0    1      1            16K (16384) cycles      0.125 s
+ 0    1    0      0            32K (32768) cycles      0.25 s
+ 0    1    0      1            64K (65536) cycles      0.5 s
+ 0    1    1      0            128K (131072) cycles    1.0 s
+ 0    1    1      1            256K (262144) cycles    2.0 s
+ 1    0    0      0            512K (524288) cycles    4.0 s
+ 1    0    0      1            1024K (1048576) cycles  8.0 s
+ 
 */
 
+
+#include <avr/sleep.h>
+#include <avr/power.h>
+#include <avr/wdt.h>
 #include <stdlib.h>
 #include <util/delay.h>
 #include <JeeLib.h> // https://github.com/jcw/jeelib
-
-ISR(WDT_vect) { 
-  Sleepy::watchdogEvent(); 
-} // interrupt handler for JeeLabs Sleepy power saving
 
 #define myNodeID 8     // RF12 node ID in the range 1-30
 #define network 210      // RF12 Network group
@@ -37,6 +53,7 @@ ISR(WDT_vect) {
 //#define DEBUG
 
 int counter;
+volatile uint8_t watchdog_counter;
 
 typedef struct {
   int counter;
@@ -52,20 +69,21 @@ void setup() {
 #if defined(DEBUG)
   sinit();
 #endif
+
   rf12_initialize(myNodeID,freq,network); // Initialize RFM12 with settings defined above 
   rf12_sleep(0);                          // Put the RFM12 to sleep
-
   PRR = bit(PRTIM1); // only keep timer 0 going
-
   ADCSRA &= ~ bit(ADEN); 
   bitSet(PRR, PRADC); // Disable the ADC to save power
+  setup_watchdog(7);
 
 }
 
 void loop() {
 
-  counter++;
+  sleep(30);
 
+  counter++;
   temptx.counter = (counter); // Get temperature reading and convert to integer, reversed at receiving end
   temptx.supplyV = readVcc(); // Get supply voltage
   temptx.tmpC    = readTmpC();
@@ -77,9 +95,45 @@ void loop() {
 #endif
 
   rfwrite(); // Send data via RF 
-
-  Sleepy::loseSomeTime(10000); //JeeLabs power save function: enter low power mode for 10 seconds (valid range 16-65000 ms)
 }
+
+//--------------------------------------------------------------------------------------------------
+// Sleep Configuration 
+//-------------------------------------------------------------------------------------------------
+// 0=16ms, 1=32ms,2=64ms,3=128ms,4=250ms,5=500ms
+// 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
+void setup_watchdog(int sleepMode) {
+
+  byte sleepByte;
+  if (sleepMode > 9 ) sleepMode=9;
+  sleepByte = sleepMode & 7;
+  if (sleepMode > 7) sleepByte |= (1<<5);
+  sleepByte |= (1<<WDCE);
+
+  MCUSR &= ~(1 << WDRF);                           // reset status flag
+  WDTCSR |= (1 << WDCE) | (1 << WDE);              // enable configuration changes
+  WDTCSR = sleepByte;
+  WDTCSR |= (1 << WDIE);                           // enable interrupt mode
+
+}
+
+void sleep(uint8_t sleepTime) {
+
+  while(watchdog_counter++ < sleepTime) {
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);             // select the watchdog timer mode
+    sleep_enable();                                  // enable the sleep mode ready for use
+    sleep_mode();                                    // trigger the sleep
+    sleep_disable();                                 // prevent further sleeps 
+  }
+  watchdog_counter = 0;
+
+}
+
+ISR(WDT_vect) {
+  watchdog_counter++;
+}
+
+
 
 // Wait a few milliseconds for proper ACK
 #ifdef USE_ACK
@@ -111,8 +165,7 @@ static void rfwrite(){
     if (acked) { 
       return; 
     }      // Return if ACK received
-
-    Sleepy::loseSomeTime(RETRY_PERIOD * 1000);     // If no ack received wait and try again
+    sleep(30);
   }
 #else
   rf12_sleep(-1);              // Wake up RF module
@@ -202,3 +255,10 @@ void sinit() {
 
 #endif
 // Serial Functions End
+
+
+
+
+
+
+
