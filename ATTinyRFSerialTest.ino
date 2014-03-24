@@ -53,7 +53,7 @@
 //#define DEBUG
 
 int counter;
-volatile uint8_t watchdog_counter;
+volatile uint8_t watchdogCounter;
 
 typedef struct {
   int counter;
