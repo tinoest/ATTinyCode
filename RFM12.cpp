@@ -20,7 +20,18 @@ uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
   nodeid = id;
   group = g;
 
-  uspi.init(SS_BIT);
+  // Set the Slave Select Pin
+  bitSet(SS_PORT, SS_BIT);
+  bitSet(SS_DDR, SS_BIT);
+  digitalWrite(SS_BIT, HIGH);
+  pinMode(SS_BIT, OUTPUT);
+
+  // Initialise the uspi
+  uspi.init();
+
+  // Bring up the interrupt pin
+  pinMode(RFM_IRQ, INPUT);
+  digitalWrite(RFM_IRQ, HIGH); // pull-up
 
   xfer(0x0000); // intitial SPI transfer added to avoid power-up problem
 

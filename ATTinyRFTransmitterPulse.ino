@@ -51,7 +51,6 @@
 
 volatile uint16_t pulse;
 
-USPI spi;
 RFM12 radio;
 
 //#define DEBUG

@@ -5,31 +5,34 @@ USPI::USPI(void)
 
 }
 
-void USPI::init (uint8_t cs_pin) {
+void USPI::init (void) 
+{
 
-  bitSet(SS_PORT, cs_pin);
-  bitSet(SS_DDR, cs_pin);
-  digitalWrite(SPI_SS, HIGH);
-  pinMode(SPI_SS, OUTPUT);
-  pinMode(SPI_MOSI, OUTPUT);
-  pinMode(SPI_MISO, INPUT);
-  pinMode(SPI_SCK, OUTPUT);
+  USPI_DDR_PORT |= _BV(USPI_USCK_PIN);     // set the USCK pin as output
+  USPI_DDR_PORT |= _BV(USPI_MISO_PIN);     // set the MISO pin as output
+  USPI_DDR_PORT &= ~_BV(USPI_MOSI_PIN);    // set the MOSI pin as input
 
   // ATtiny
-  USICR = bit(USIWM0);  
+  USICR = (1<<USIWM0);  
 
-  pinMode(RFM_IRQ, INPUT);
-  digitalWrite(RFM_IRQ, HIGH); // pull-up
 }
 
-uint8_t USPI::transfer (uint8_t outputData) {
-  
+uint8_t USPI::transfer (uint8_t outputData) 
+{
+
   USIDR = outputData;
   USISR = (1<<USIOIF); // clear OVF flag
   do {
     USICR = (1<<USIWM0)|(1<<USICS1)|(1<<USICLK)|(1<<USITC);
-  } while ((USISR & (1<<USIOIF)) == 0);
-  
+  } 
+  while ((USISR & (1<<USIOIF)) == 0);
+
   return USIDR;        // return the reply
-  
+
 }
+
+void USPI::end(void)
+{
+  USICR &= ~(_BV(USIWM1) | _BV(USIWM0));
+}
+

@@ -10,17 +10,21 @@
 
 #define RFM_IRQ     2
 
-#define SPI_SS      1     // PB1, pin 3
-#define SPI_MISO    4     // PA6, pin 7
-#define SPI_MOSI    5     // PA5, pin 8
-#define SPI_SCK     6     // PA4, pin 9
+//USI ports and pins
+#if defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
+#define USPI_DDR_PORT DDRA
+#define USPI_USCK_PIN DDA4
+#define USPI_MISO_PIN DDA5
+#define USPI_MOSI_PIN DDA6
+#endif
 
 class USPI
 {
 public:
   USPI(void);
-  void init(uint8_t cs_pin);
+  void init(void);
   uint8_t transfer (uint8_t outputData);
+  void end(void);
 private:
 
 };
