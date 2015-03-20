@@ -1,4 +1,7 @@
 #include "RFM12.h"
+#include "USPI.h"
+
+USPI uspi;
 
 volatile uint8_t RFM12::rxfill;       // number of data bytes in rf12_buf
 volatile int8_t RFM12::rxstate;       // current transceiver state
@@ -8,17 +11,16 @@ uint8_t RFM12::group;                 // network group
 volatile uint8_t buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 volatile uint16_t crc;         // running crc value
 
-RFM12::RFM12(void)
-{
+RFM12::RFM12() {
+  //_spi = &spi;
   //_interruptPin = interruptPin;
-  
 }
 
 uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
   nodeid = id;
   group = g;
 
-  spiInit();
+  uspi.init(SS_BIT);
 
   xfer(0x0000); // intitial SPI transfer added to avoid power-up problem
 
@@ -131,54 +133,9 @@ void RFM12::recvStart (void) {
   xfer(RF_RECEIVER_ON);
 }
 
-void RFM12::spiInit (void) {
+uint8_t RFM12::transferByte (uint8_t outputData) {
 
-  bitSet(SS_PORT, cs_pin);
-  bitSet(SS_DDR, cs_pin);
-  digitalWrite(SPI_SS, HIGH);
-  pinMode(SPI_SS, OUTPUT);
-  pinMode(SPI_MOSI, OUTPUT);
-  pinMode(SPI_MISO, INPUT);
-  pinMode(SPI_SCK, OUTPUT);
-
-  // ATtiny
-  USICR = bit(USIWM0);  
-
-  pinMode(RFM_IRQ, INPUT);
-  digitalWrite(RFM_IRQ, HIGH); // pull-up
-}
-
-uint8_t RFM12::transferByte (uint8_t out) {
-
-  // ATtiny
-  USIDR = out;
-  byte v1 = bit(USIWM0) | bit(USITC);
-  byte v2 = bit(USIWM0) | bit(USITC) | bit(USICLK);
-#if F_CPU <= 5000000
-  // only unroll if resulting clock stays under 2.5 MHz
-  USICR = v1; 
-  USICR = v2;
-  USICR = v1; 
-  USICR = v2;
-  USICR = v1; 
-  USICR = v2;
-  USICR = v1; 
-  USICR = v2;
-  USICR = v1; 
-  USICR = v2;
-  USICR = v1; 
-  USICR = v2;
-  USICR = v1; 
-  USICR = v2;
-  USICR = v1; 
-  USICR = v2;
-#else
-  for (uint8_t i = 0; i < 8; ++i) {
-    USICR = v1;
-    USICR = v2;
-  }
-#endif
-  return USIDR;
+  return uspi.transfer(outputData);
 
 }
 
@@ -309,3 +266,11 @@ uint16_t RFM12::xferSlow (uint16_t cmd) {
 #endif
   return reply;
 }
+
+
+
+
+
+
+
+

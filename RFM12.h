@@ -3,19 +3,13 @@
 #include <avr/sleep.h>
 #include <stdlib.h>
 #include <util/crc16.h>
+#include <util/atomic.h>
 
+#include "USPI.h"
 #include "Arduino.h"
 
 //ATTiny84
-#define RFM_IRQ     2
-#define SS_DDR      DDRB
-#define SS_PORT     PORTB
 #define SS_BIT      1
-
-#define SPI_SS      1     // PB1, pin 3
-#define SPI_MISO    4     // PA6, pin 7
-#define SPI_MOSI    5     // PA5, pin 8
-#define SPI_SCK     6     // PA4, pin 9
 
 #define RF12_433MHZ     1   ///< RFM12B 433 MHz frequency band.
 #define RF12_868MHZ     2   ///< RFM12B 868 MHz frequency band.
@@ -75,13 +69,13 @@ enum {
 class RFM12
 {
 public:
-  RFM12(void);
+  RFM12();
   uint8_t init(uint8_t id, uint8_t band, uint8_t g);
   void sleep (char n);
   uint8_t recvDone (void);
   void recvStart (void);
   void spiInit (void);
-  static uint8_t transferByte(uint8_t out);
+  static uint8_t transferByte(uint8_t outputData);
   static void xfer (uint16_t cmd);
   static uint16_t xferSlow (uint16_t cmd);
   uint8_t canSend ();
@@ -98,6 +92,7 @@ private:
   static uint8_t group;               // network group
   static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
   static volatile int8_t rxstate;     // current transceiver state
+  //Stream* _spi;
   //volatile uint16_t crc;            // running crc value
 };
 

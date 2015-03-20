@@ -37,7 +37,6 @@
 #include <util/delay.h>
 #include "RFM12.h"
 
-
 #define BAUD            9600
 #define STX_PORT        PORTA
 #define STX_DDR         DDRA
@@ -52,6 +51,7 @@
 
 volatile uint16_t pulse;
 
+USPI spi;
 RFM12 radio;
 
 //#define DEBUG
@@ -95,7 +95,7 @@ void loop() {
   counter++;
   temptx.counter = (counter); // Get temperature reading and convert to integer, reversed at receiving end
   temptx.supplyV = readVcc(); // Get supply voltage
-  temptx.tmpC    = pulse;
+  temptx.tmpC    = readTmpC();
 
 #if defined(DEBUG)
   char tmp[50];
