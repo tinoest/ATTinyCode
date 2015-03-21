@@ -8,12 +8,13 @@ volatile int8_t RFM12::rxstate;       // current transceiver state
 uint8_t RFM12::nodeid;                // address of this node
 uint8_t RFM12::group;                 // network group
 
+uint8_t RFM12::_ssPin;
+
 volatile uint8_t buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 volatile uint16_t crc;         // running crc value
 
-RFM12::RFM12() {
-  //_spi = &spi;
-  //_interruptPin = interruptPin;
+RFM12::RFM12(uint8_t ssPin ) {
+  _ssPin   = ssPin;
 }
 
 uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
@@ -21,17 +22,17 @@ uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
   group = g;
 
   // Set the Slave Select Pin
-  bitSet(SS_PORT, SS_BIT);
-  bitSet(SS_DDR, SS_BIT);
-  digitalWrite(SS_BIT, HIGH);
-  pinMode(SS_BIT, OUTPUT);
+  bitSet(SS_PORT, _ssPin);
+  bitSet(SS_DDR, _ssPin);
+  SS_PORT |= (1 << _ssPin); //digitalWrite(_ssPin, HIGH);
+  SS_DDR  |= (1 << _ssPin); //pinMode(_ssPin, OUTPUT);
 
   // Initialise the uspi
   uspi.init();
 
   // Bring up the interrupt pin
-  pinMode(RFM_IRQ, INPUT);
-  digitalWrite(RFM_IRQ, HIGH); // pull-up
+  DDRB  &= ~(1<<RFM_IRQ); // pinMode(RFM_IRQ, INPUT);
+  PORTB |= (1<<RFM_IRQ);  // digitalWrite(RFM_IRQ, HIGH); // pull-up
 
   xfer(0x0000); // intitial SPI transfer added to avoid power-up problem
 
@@ -39,7 +40,8 @@ uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
 
   // wait until RFM12B is out of power-up reset, this takes several *seconds*
   xfer(RF_TXREG_WRITE); // in case we're still in OOK mode
-  while (digitalRead(RFM_IRQ) == 0)
+  //while (digitalRead(RFM_IRQ) == 0)
+  while( PINB & ( 1<<RFM_IRQ) == 0)
     xfer(0x0000);
 
   xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
@@ -63,41 +65,13 @@ uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
   xfer(0xC049); // 1.66MHz,3.1V 
 
   rxstate = TXIDLE;
-#if PINCHG_IRQ
-#if RFM_IRQ < 8
+
   if ((nodeid & NODE_ID) != 0) {
-    bitClear(DDRD, RFM_IRQ);      // input
-    bitSet(PORTD, RFM_IRQ);       // pull-up
-    bitSet(PCMSK2, RFM_IRQ);      // pin-change
-    bitSet(PCICR, PCIE2);         // enable
-  } 
-  else
-    bitClear(PCMSK2, RFM_IRQ);
-#elif RFM_IRQ < 14
-  if ((nodeid & NODE_ID) != 0) {
-    bitClear(DDRB, RFM_IRQ - 8);  // input
-    bitSet(PORTB, RFM_IRQ - 8);   // pull-up
-    bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
-    bitSet(PCICR, PCIE0);         // enable
-  } 
-  else
-    bitClear(PCMSK0, RFM_IRQ - 8);
-#else
-  if ((nodeid & NODE_ID) != 0) {
-    bitClear(DDRC, RFM_IRQ - 14); // input
-    bitSet(PORTC, RFM_IRQ - 14);  // pull-up
-    bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
-    bitSet(PCICR, PCIE1);         // enable
-  } 
-  else
-    bitClear(PCMSK1, RFM_IRQ - 14);
-#endif
-#else
-  if ((nodeid & NODE_ID) != 0)
-    attachInterrupt(0, RFM12::interruptHandler, LOW);
-  else
-    detachInterrupt(0);
-#endif
+    MCUCR = (MCUCR & ~((1 << ISC00) | (1 << ISC01))) | (0 << ISC00);
+    GIMSK |= (1 << INT0); //attachInterrupt(0, RFM12::interruptHandler, LOW);
+  } else {
+    GIMSK &= ~(1 << INT0); //detachInterrupt(0);
+  }
 
   return nodeid;
 }
@@ -152,10 +126,10 @@ uint8_t RFM12::transferByte (uint8_t outputData) {
 
 void RFM12::xfer (uint16_t cmd) {
   // writing can take place at full speed, even 8 MHz works
-  bitClear(SS_PORT, cs_pin);
+  bitClear(SS_PORT, _ssPin);
   transferByte(cmd >> 8) << 8;
   transferByte(cmd);
-  bitSet(SS_PORT, cs_pin);
+  bitSet(SS_PORT, _ssPin);
 }
 
 uint8_t RFM12::canSend () {
@@ -264,22 +238,20 @@ void RFM12::interruptHandler() {
 }
 
 uint16_t RFM12::xferSlow (uint16_t cmd) {
-  // slow down to under 2.5 MHz
-#if F_CPU > 10000000
-  bitSet(SPCR, SPR0);
-#endif
-  bitClear(SS_PORT, cs_pin);
+
+  bitClear(SS_PORT, _ssPin);
   uint16_t reply = transferByte(cmd >> 8) << 8;
   reply |= transferByte(cmd);
-  bitSet(SS_PORT, cs_pin);
-#if F_CPU > 10000000
-  bitClear(SPCR, SPR0);
-#endif
+  bitSet(SS_PORT, _ssPin);
+
   return reply;
 }
 
 
-
+ISR (EXT_INT0_vect) 
+{ 
+  RFM12::interruptHandler();
+} 
 
 
 

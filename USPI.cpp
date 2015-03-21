@@ -8,9 +8,9 @@ USPI::USPI(void)
 void USPI::init (void) 
 {
 
-  USPI_DDR_PORT |= _BV(USPI_USCK_PIN);     // set the USCK pin as output
-  USPI_DDR_PORT |= _BV(USPI_MISO_PIN);     // set the MISO pin as output
-  USPI_DDR_PORT &= ~_BV(USPI_MOSI_PIN);    // set the MOSI pin as input
+  USPI_DDR_PORT |= (1<<USPI_USCK_PIN);     // set the USCK pin as output
+  USPI_DDR_PORT |= (1<<USPI_MISO_PIN);     // set the MISO pin as output
+  USPI_DDR_PORT &= ~(1<<USPI_MOSI_PIN);    // set the MOSI pin as input
 
   // ATtiny
   USICR = (1<<USIWM0);  
@@ -31,8 +31,17 @@ uint8_t USPI::transfer (uint8_t outputData)
 
 }
 
+void USPI::setDataMode(uint8_t mode)
+{
+  if(mode == USPI_MODE1) {
+    USICR |= (1<<USICS0);
+  } else {
+    USICR &= ~ (1<<USICS0);
+  }
+}
+
 void USPI::end(void)
 {
-  USICR &= ~(_BV(USIWM1) | _BV(USIWM0));
+  USICR &= ~((1<<USIWM1) | (1<<USIWM0));
 }
 

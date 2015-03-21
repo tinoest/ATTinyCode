@@ -4,12 +4,6 @@
 #include <stdlib.h>
 #include "Arduino.h"
 
-//ATTiny84
-#define SS_DDR      DDRB
-#define SS_PORT     PORTB
-
-#define RFM_IRQ     2
-
 //USI ports and pins
 #if defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
 #define USPI_DDR_PORT DDRA
@@ -18,12 +12,16 @@
 #define USPI_MOSI_PIN DDA6
 #endif
 
+#define USPI_MODE0 0
+#define USPI_MODE1 1
+
 class USPI
 {
 public:
   USPI(void);
   void init(void);
   uint8_t transfer (uint8_t outputData);
+  void setDataMode(uint8_t mode);
   void end(void);
 private:
 

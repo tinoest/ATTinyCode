@@ -8,8 +8,8 @@
 #include "USPI.h"
 #include "Arduino.h"
 
-//ATTiny84
-#define SS_BIT      1
+// RFM Interrupt port
+#define RFM_IRQ     2
 
 #define RF12_433MHZ     1   ///< RFM12B 433 MHz frequency band.
 #define RF12_868MHZ     2   ///< RFM12B 868 MHz frequency band.
@@ -58,44 +58,43 @@
 // maximum transmit / receive buffer: 3 header + data + 2 crc bytes
 #define RF_MAX   (RF12_MAXDATA + 5)
 
-static uint8_t cs_pin = SS_BIT;     // chip select pin
-
 enum {
   TXCRC1, TXCRC2, TXTAIL, TXDONE, TXIDLE,
   TXRECV,
   TXPRE1, TXPRE2, TXPRE3, TXSYN1, TXSYN2,
 };
 
+// Slave Select Ports
+#define SS_DDR      DDRB
+#define SS_PORT     PORTB
+
 class RFM12
 {
 public:
-  RFM12();
+  RFM12(uint8_t csPin);
   uint8_t init(uint8_t id, uint8_t band, uint8_t g);
   void sleep (char n);
   uint8_t recvDone (void);
   void recvStart (void);
-  void spiInit (void);
-  static uint8_t transferByte(uint8_t outputData);
-  static void xfer (uint16_t cmd);
-  static uint16_t xferSlow (uint16_t cmd);
   uint8_t canSend ();
   void sendStart (uint8_t hdr);
   void sendStart (uint8_t hdr, const void* ptr, uint8_t len);
   void sendWait (uint8_t mode);
-  uint16_t control(uint16_t cmd);
   static void interruptHandler(void);
 private:
-  //uint8_t _interruptPin;
-  //volatile uint8_t buf[RF_MAX];     // recv/xmit buf, including hdr & crc bytes
+  static uint8_t transferByte(uint8_t outputData);
+  static void xfer (uint16_t cmd);
+  static uint16_t xferSlow (uint16_t cmd);
+  uint16_t control(uint16_t cmd);
   long seq;                           // seq number of encrypted packet (or -1)
   static uint8_t nodeid;              // address of this node
   static uint8_t group;               // network group
   static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
   static volatile int8_t rxstate;     // current transceiver state
-  //Stream* _spi;
-  //volatile uint16_t crc;            // running crc value
+  static uint8_t _ssPin;
 };
 
 #endif
+
 
 

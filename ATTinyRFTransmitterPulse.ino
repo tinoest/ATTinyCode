@@ -51,7 +51,11 @@
 
 volatile uint16_t pulse;
 
-RFM12 radio;
+//ATTiny84
+#define SS_BIT      1
+
+// Pass the Slave Select Port Information
+RFM12 radio(SS_BIT);
 
 //#define DEBUG
 
@@ -74,7 +78,7 @@ void setup() {
 #endif
 
   // PB0 
-  GIMSK  = (1<<PCIE1);            // enable Pin Change Interrupt 1 
+  GIMSK  |= (1<<PCIE1);            // enable Pin Change Interrupt 1 
   PCMSK1 = (1<<PCINT8);           // enable PCINT8
 
   radio.init(10,RF12_433MHZ,210);  // Initialize RFM12 with settings defined above 
