@@ -9,33 +9,12 @@
  PA6  7|    |8   PA5
  +----+
  
- Watchdog Timer Prescale Select
- 
- WDP3   WDP2 WDP1 WDP0   Number of WDT     Typical Time-out at Oscillator Cycles     VCC = 5.0V
- 
- 0    0    0      0             2K (2048) cycles       16 ms
- 0    0    0      1             4K (4096) cycles       32 ms
- 0    0    1      0             8K (8192) cycles       64 ms
- 0    0    1      1            16K (16384) cycles      0.125 s
- 0    1    0      0            32K (32768) cycles      0.25 s
- 0    1    0      1            64K (65536) cycles      0.5 s
- 0    1    1      0            128K (131072) cycles    1.0 s
- 0    1    1      1            256K (262144) cycles    2.0 s
- 1    0    0      0            512K (524288) cycles    4.0 s
- 1    0    0      1            1024K (1048576) cycles  8.0 s
- 
  */
-// digitalWrite Low 
-#define CLR(x,y) (x&=(~(1<<y)))
-// digitalWrite High
-#define SET(x,y) (x|=(1<<y))
 
-#include <avr/sleep.h>
-#include <avr/power.h>
-#include <avr/wdt.h>
 #include <stdlib.h>
 #include <util/delay.h>
 #include "RFM12.h"
+#include "WatchdogSleep.h"
 
 #define BAUD            9600
 #define STX_PORT        PORTA
@@ -54,13 +33,15 @@ volatile uint16_t pulse;
 //ATTiny84
 #define SS_BIT      1
 
+// Enable the Watchdog Sleep
+WatchdogSleep sleep;
+
 // Pass the Slave Select Port Information
 RFM12 radio(SS_BIT);
 
 //#define DEBUG
 
 int counter;
-volatile uint8_t watchdogCounter;
 
 typedef struct {
   int counter;
@@ -78,22 +59,22 @@ void setup() {
 #endif
 
   // PB0 
-  GIMSK  |= (1<<PCIE1);            // enable Pin Change Interrupt 1 
-  PCMSK1 = (1<<PCINT8);           // enable PCINT8
+  GIMSK  |= (1<<PCIE1);                     // enable Pin Change Interrupt 1 
+  PCMSK1 = (1<<PCINT8);                     // enable PCINT8
 
-  radio.init(10,RF12_433MHZ,210);  // Initialize RFM12 with settings defined above 
+  radio.init(10,RF12_433MHZ,210);           // Initialize RFM12 with settings defined above 
   radio.sleep(0);                           // Put the RFM12 to sleep
-  PRR = bit(PRTIM1);                       // only keep timer 0 going
+  PRR = bit(PRTIM1);                        // only keep timer 0 going
   ADCSRA &= ~ bit(ADEN); 
-  bitSet(PRR, PRADC);                      // Disable the ADC to save power
-  setup_watchdog(6);
+  bitSet(PRR, PRADC);                        // Disable the ADC to save power
+  sleep.init(6);
   pulse = 0;
 
 }
 
 void loop() {
 
-  sleep(30);
+  sleep.sleep(30);
 
   counter++;
   temptx.counter = (counter); // Get temperature reading and convert to integer, reversed at receiving end
@@ -120,46 +101,6 @@ ISR (PCINT1_vect)
     _delay_ms(20); // simple debounce 
   } 
 } 
-
-
-//--------------------------------------------------------------------------------------------------
-// Sleep Configuration 
-//-------------------------------------------------------------------------------------------------
-// 0=16ms, 1=32ms,2=64ms,3=128ms,4=250ms,5=500ms,6=1 sec,7=2 sec, 8=4 sec, 9=8 sec
-void setup_watchdog(uint8_t sleepMode) {
-
-  byte sleepByte;
-  if (sleepMode > 9 ) sleepMode = 9;
-  sleepByte = sleepMode & 0x07;
-  if (sleepMode > 7) sleepByte |= (1<<5);
-  sleepByte |= (1<<WDCE);
-
-  MCUSR &= ~(1 << WDRF);                           // reset status flag
-  WDTCSR |= (1 << WDCE) | (1 << WDE);              // enable configuration changes
-  WDTCSR = sleepByte;
-  WDTCSR |= (1 << WDIE);                           // enable interrupt mode
-
-}
-
-void sleep(uint8_t sleepTime) {
-
-  do {
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);             // select the watchdog timer mode
-    sleep_enable();                                  // enable the sleep mode ready for use
-    sleep_mode();                                    // trigger the sleep
-    sleep_disable();                                 // prevent further sleeps 
-  } 
-  while(watchdogCounter < sleepTime);
-
-  watchdogCounter = 0;
-
-}
-
-ISR(WDT_vect) {
-  watchdogCounter++;
-}
-
-
 
 // Wait a few milliseconds for proper ACK
 #ifdef USE_ACK
