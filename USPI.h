@@ -1,8 +1,12 @@
+// USPI for Attiny84
+// http://opensource.org/licenses/BSD-3-Clause
+// 2015 Martyn Brown : http://tinoest.no-ip.org
 #ifndef USPI_h
 #define USPI_h
 
 #include <stdlib.h>
-#include "Arduino.h"
+#include <stdint.h>
+#include<avr/io.h>
 
 //USI ports and pins
 #if defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)

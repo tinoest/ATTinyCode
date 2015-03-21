@@ -1,3 +1,8 @@
+// RFM12
+// http://opensource.org/licenses/BSD-3-Clause
+// 2014 Martyn Brown : http://tinoest.no-ip.org
+// Based on the RFM12 driver from jeelabs.com (2009-02-09 <jc@wippler.nl>)
+
 #include "RFM12.h"
 #include "USPI.h"
 

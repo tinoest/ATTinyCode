@@ -1,3 +1,7 @@
+// USPI for Attiny84
+// http://opensource.org/licenses/BSD-3-Clause
+// 2015 Martyn Brown : http://tinoest.no-ip.org
+
 #include "USPI.h"
 
 USPI::USPI(void)

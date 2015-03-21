@@ -1,11 +1,17 @@
+// WatchdogSleep for Attiny84
+// http://opensource.org/licenses/BSD-3-Clause
+// 2015 Martyn Brown : http://tinoest.no-ip.org
+
 #ifndef WATCHDOGSLEEP_h
 #define WATCHDOGSLEEP_h
 
+typedef unsigned char byte;
+
 #include <stdlib.h>
-#include "Arduino.h"
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <avr/wdt.h>
+#include <avr/interrupt.h>
 
 /*
  Watchdog Timer Prescale Select

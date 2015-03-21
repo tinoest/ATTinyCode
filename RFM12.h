@@ -1,12 +1,21 @@
+// RFM12 for Attiny84
+// http://opensource.org/licenses/BSD-3-Clause
+// 2014 Martyn Brown : http://tinoest.no-ip.org
+// Based on the RFM12 driver from jeelabs.com (2009-02-09 <jc@wippler.nl>)
+
 #ifndef RFM12_h
 #define RFM12_h
 #include <avr/sleep.h>
 #include <stdlib.h>
 #include <util/crc16.h>
 #include <util/atomic.h>
+#include <string.h> 
+
+#define bitSet(value, bit) ((value) |= (1UL << (bit)))
+#define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
 
 #include "USPI.h"
-#include "Arduino.h"
+
 
 // RFM Interrupt port
 #define RFM_IRQ     2
