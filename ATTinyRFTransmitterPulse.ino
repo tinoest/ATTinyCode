@@ -1,4 +1,8 @@
 /*
+// ATTinyRFTransmitterPulse 
+// http://opensource.org/licenses/BSD-3-Clause
+// 2014 Martyn Brown : http://tinoest.no-ip.org
+
        +-\/-+
  VCC  1|    |14  GND
  PB0  2|    |13  AREF 
@@ -8,8 +12,11 @@
  PA7  6|    |9   PA4 
  PA6  7|    |8   PA5
  +----+
- 
- */
+*/
+
+#ifndef F_CPU 
+  #define F_CPU 8000000L
+#endif
 
 #include <stdlib.h>
 #include <util/delay.h>
@@ -32,6 +39,13 @@
 #define RETRY_PERIOD 5    // How soon to retry (in seconds) if ACK didn't come in
 #define RETRY_LIMIT 5     // Maximum number of times to retry
 #define ACK_TIME 10       // Number of milliseconds to wait for an ack
+
+// Function defines 
+long readVcc();
+long int readTmpC();
+void sinit();
+void sputs(const void *s);
+void sputchar(uint8_t c);
 
 volatile uint16_t pulse;
 
@@ -133,7 +147,7 @@ long readTmpC() {
   PRR    &= ~(1<<PRADC); // bitClear(PRR, PRADC); 
   ADCSRA |= (1<<ADEN); // Enable the ADC
   long result;
-  ADMUX = B00100010;                       // Select temperature sensor
+  ADMUX = 0b00100010;                       // Select temperature sensor
   ADMUX &= ~(1<<ADLAR);                    // Right-adjust result
   ADMUX |= (1<< REFS1);                    // Set Ref voltage
   ADMUX &= ~(1<<REFS0);                    // to 1.1V
@@ -186,3 +200,16 @@ void sinit() {
 //--------------------------------------------------------------------------------------------------
 // Serial Functions End
 //--------------------------------------------------------------------------------------------------
+
+/*
+int main(void)
+{
+  setup();
+
+  for (;;) {
+    loop();
+  }
+
+  return 0;
+}
+*/

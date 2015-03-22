@@ -45,7 +45,7 @@ uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t group) {
   // wait until RFM12B is out of power-up reset, this takes several *seconds*
   xfer(RF_TXREG_WRITE); // in case we're still in OOK mode
   //while (digitalRead(RFM_IRQ) == 0)
-  while( (PINB & ( 1<<RFM_IRQ)) == 0)
+  while( (PINB & (1<<RFM_IRQ)) == 0)
     xfer(0x0000);
 
   xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
