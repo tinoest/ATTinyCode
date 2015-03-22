@@ -4,33 +4,32 @@
 // Based on the RFM12 driver from jeelabs.com (2009-02-09 <jc@wippler.nl>)
 
 #include "RFM12.h"
-#include "USPI.h"
 
 USPI uspi;
 
 volatile uint8_t RFM12::rxfill;       // number of data bytes in rf12_buf
 volatile int8_t RFM12::rxstate;       // current transceiver state
-uint8_t RFM12::nodeid;                // address of this node
-uint8_t RFM12::group;                 // network group
+uint8_t RFM12::_node;                // address of this node
+uint8_t RFM12::_group;                 // network group
 
 uint8_t RFM12::_ssPin;
 
 volatile uint8_t buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 volatile uint16_t crc;         // running crc value
 
-RFM12::RFM12(uint8_t ssPin ) {
+RFM12::RFM12(uint8_t ssPin) {
   _ssPin   = ssPin;
 }
 
-uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
-  nodeid = id;
-  group = g;
+uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t group) {
+  _node  = id;
+  _group = group;
 
   // Set the Slave Select Pin
-  bitSet(SS_PORT, _ssPin);
-  bitSet(SS_DDR, _ssPin);
-  SS_PORT |= (1 << _ssPin); //digitalWrite(_ssPin, HIGH);
-  SS_DDR  |= (1 << _ssPin); //pinMode(_ssPin, OUTPUT);
+  SS_PORT |= (1 << _ssPin); // bitSet(SS_PORT, _ssPin); 
+  SS_DDR  |= (1 << _ssPin); // bitSet(SS_DDR, _ssPin);
+  SS_PORT |= (1 << _ssPin);    // digitalWrite(_ssPin, HIGH);
+  SS_DDR  |= (1 << _ssPin);    // pinMode(_ssPin, OUTPUT);
 
   // Initialise the uspi
   uspi.init();
@@ -46,7 +45,7 @@ uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
   // wait until RFM12B is out of power-up reset, this takes several *seconds*
   xfer(RF_TXREG_WRITE); // in case we're still in OOK mode
   //while (digitalRead(RFM_IRQ) == 0)
-  while( PINB & ( 1<<RFM_IRQ) == 0)
+  while( (PINB & ( 1<<RFM_IRQ)) == 0)
     xfer(0x0000);
 
   xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
@@ -54,9 +53,9 @@ uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
   xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
   xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
   xfer(0xC2AC); // AL,!ml,DIG,DQD4 
-  if (group != 0) {
+  if (_group != 0) {
     xfer(0xCA83); // FIFO8,2-SYNC,!ff,DR 
-    xfer(0xCE00 | group); // SYNC=2DXX； 
+    xfer(0xCE00 | _group); // SYNC=2DXX； 
   } 
   else {
     xfer(0xCA8B); // FIFO8,1-SYNC,!ff,DR 
@@ -71,14 +70,15 @@ uint8_t RFM12::init (uint8_t id, uint8_t band, uint8_t g) {
 
   rxstate = TXIDLE;
 
-  if ((nodeid & NODE_ID) != 0) {
+  if ((_node & NODE_ID) != 0) {
     MCUCR = (MCUCR & ~((1 << ISC00) | (1 << ISC01))) | (0 << ISC00);
     GIMSK |= (1 << INT0); //attachInterrupt(0, RFM12::interruptHandler, LOW);
-  } else {
+  } 
+  else {
     GIMSK &= ~(1 << INT0); //detachInterrupt(0);
   }
 
-  return nodeid;
+  return _node;
 }
 
 void RFM12::sleep (char n) {
@@ -99,7 +99,7 @@ uint8_t RFM12::recvDone (void) {
     rxstate = TXIDLE;
     if (rf12_len > RF12_MAXDATA)
       rf12_len = 1; // force bad crc if packet length is invalid
-    if (!(rf12_hdr & RF12_HDR_DST) || (nodeid & NODE_ID) == 31 || (rf12_hdr & RF12_HDR_MASK) == (nodeid & NODE_ID)) {
+    if (!(rf12_hdr & RF12_HDR_DST) || (_node & NODE_ID) == 31 || (rf12_hdr & RF12_HDR_MASK) == (_node & NODE_ID)) {
       seq = -1;
       return 1; // it's a broadcast packet or it's addressed to this node
     }
@@ -115,8 +115,8 @@ void RFM12::recvStart (void) {
   rxfill = rf12_len = 0;
   crc = ~0;
 
-  if (group != 0) {
-    crc = _crc16_update(~0, group);
+  if (_group != 0) {
+    crc = _crc16_update(~0, _group);
   }
 
   rxstate = TXRECV;    
@@ -131,10 +131,10 @@ uint8_t RFM12::transferByte (uint8_t outputData) {
 
 void RFM12::xfer (uint16_t cmd) {
   // writing can take place at full speed, even 8 MHz works
-  bitClear(SS_PORT, _ssPin);
-  transferByte(cmd >> 8) << 8;
+  SS_PORT &= ~(1<<_ssPin); // bitClear(SS_PORT, _ssPin);
+  transferByte(cmd >> 8);
   transferByte(cmd);
-  bitSet(SS_PORT, _ssPin);
+  SS_PORT |= (1<<_ssPin); // bitSet(SS_PORT, _ssPin);
 }
 
 uint8_t RFM12::canSend () {
@@ -147,20 +147,20 @@ uint8_t RFM12::canSend () {
 }
 
 void RFM12::sendStart (uint8_t hdr) {
-  rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + (nodeid & NODE_ID);
+  rf12_hdr = hdr & RF12_HDR_DST ? hdr : (hdr & ~RF12_HDR_MASK) + (_node & NODE_ID);
 
   crc = ~0;
 
-  crc = _crc16_update(crc, group);
+  crc = _crc16_update(crc, _group);
 
   rxstate = TXPRE1;
   xfer(RF_XMITTER_ON); // bytes will be fed via interrupts
 }
 
-void RFM12::sendStart (uint8_t hdr, const void* ptr, uint8_t len) 
+void RFM12::sendStart (uint8_t hdr, const void* packetBuffer, uint8_t packetLen) 
 {
-  rf12_len = len;
-  memcpy((void*) rf12_data, ptr, len);
+  rf12_len = packetLen;
+  memcpy((void*) rf12_data, packetBuffer, packetLen);
   sendStart(hdr);
 }
 
@@ -184,9 +184,9 @@ void RFM12::sendWait (uint8_t mode) {
 uint16_t RFM12::control(uint16_t cmd) {
 
   // ATtiny
-  bitClear(GIMSK, INT0);
+  GIMSK &= ~(1<<INT0);   // bitClear(GIMSK, INT0);
   uint16_t r = xferSlow(cmd);
-  bitSet(GIMSK, INT0);
+  GIMSK |= (1<<INT0);    // bitSet(GIMSK, INT0);
 
   return r;
 
@@ -200,8 +200,8 @@ void RFM12::interruptHandler() {
   if (rxstate == TXRECV) {
     uint8_t in = xferSlow(RF_RX_FIFO_READ);
 
-    if (rxfill == 0 && group != 0)
-      buf[rxfill++] = group;
+    if (rxfill == 0 && _group != 0)
+      buf[rxfill++] = _group;
 
     buf[rxfill++] = in;
     crc = _crc16_update(crc, in);
@@ -223,7 +223,7 @@ void RFM12::interruptHandler() {
         out = 0x2D; 
         break;
       case TXSYN2: 
-        out = group; 
+        out = _group; 
         rxstate = - (2 + rf12_len); 
         break;
       case TXCRC1: 
@@ -244,12 +244,25 @@ void RFM12::interruptHandler() {
 
 uint16_t RFM12::xferSlow (uint16_t cmd) {
 
-  bitClear(SS_PORT, _ssPin);
+  SS_PORT &= ~(1<<_ssPin);    // bitClear(SS_PORT, _ssPin);
   uint16_t reply = transferByte(cmd >> 8) << 8;
   reply |= transferByte(cmd);
-  bitSet(SS_PORT, _ssPin);
+  SS_PORT |= (1<<_ssPin);   // bitSet(SS_PORT, _ssPin);
 
   return reply;
+}
+
+//--------------------------------------------------------------------------------------------------
+// Send payload data via RF
+//-------------------------------------------------------------------------------------------------
+void RFM12::transmit(uint8_t hdr, const void* packetBuffer, uint8_t packetLen){
+  sleep(-1);              // Wake up RF module
+  while (!canSend())
+    recvDone();
+  sendStart(hdr, packetBuffer, packetLen); 
+  sendWait(2);           // Wait for RF to finish sending while in standby mode
+  sleep(0);              // Put RF module to sleep
+  return;
 }
 
 
@@ -257,6 +270,7 @@ ISR (EXT_INT0_vect)
 { 
   RFM12::interruptHandler();
 } 
+
 
 
 

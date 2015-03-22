@@ -6,16 +6,11 @@
 #ifndef RFM12_h
 #define RFM12_h
 #include <avr/sleep.h>
+#include <avr/interrupt.h>
 #include <stdlib.h>
 #include <util/crc16.h>
-#include <util/atomic.h>
 #include <string.h> 
-
-#define bitSet(value, bit) ((value) |= (1UL << (bit)))
-#define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
-
 #include "USPI.h"
-
 
 // RFM Interrupt port
 #define RFM_IRQ     2
@@ -81,29 +76,32 @@ class RFM12
 {
 public:
   RFM12(uint8_t csPin);
-  uint8_t init(uint8_t id, uint8_t band, uint8_t g);
+  uint8_t init(uint8_t id, uint8_t band, uint8_t group);
   void sleep (char n);
-  uint8_t recvDone (void);
-  void recvStart (void);
-  uint8_t canSend ();
-  void sendStart (uint8_t hdr);
-  void sendStart (uint8_t hdr, const void* ptr, uint8_t len);
-  void sendWait (uint8_t mode);
+  void transmit(uint8_t hdr, const void* packetBuffer, uint8_t packetLen);
   static void interruptHandler(void);
 private:
+  void sendStart (uint8_t hdr);
+  void sendStart (uint8_t hdr, const void* packetBuffer, uint8_t packetLen);
+  void sendWait (uint8_t mode);
+  uint8_t canSend ();
+  uint8_t recvDone (void);
+  void recvStart (void);
   static uint8_t transferByte(uint8_t outputData);
   static void xfer (uint16_t cmd);
   static uint16_t xferSlow (uint16_t cmd);
   uint16_t control(uint16_t cmd);
   long seq;                           // seq number of encrypted packet (or -1)
-  static uint8_t nodeid;              // address of this node
-  static uint8_t group;               // network group
+  static uint8_t _node;               // address of this node
+  static uint8_t _group;              // network group
   static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
   static volatile int8_t rxstate;     // current transceiver state
   static uint8_t _ssPin;
 };
 
 #endif
+
+
 
 
 
