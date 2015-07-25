@@ -1,0 +1,6 @@
+avr-gcc -Wall -g2 -gstabs -Os -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -mmcu=attiny84 -DF_CPU=8000000UL -c RFM12.cpp
+avr-gcc -Wall -g2 -gstabs -Os -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -mmcu=attiny84 -DF_CPU=8000000UL -c USPI.cpp
+avr-gcc -Wall -g2 -gstabs -Os -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -mmcu=attiny84 -DF_CPU=8000000UL -c WatchdogSleep.cpp 
+avr-gcc -Wall -g2 -gstabs -Os -fpack-struct -fshort-enums -funsigned-char -funsigned-bitfields -mmcu=attiny84 -DF_CPU=8000000UL -c main.cpp 
+avr-gcc -g -mmcu=attiny84 -o main.elf main.o RFM12.o WatchdogSleep.o USPI.o 
+avr-objcopy -j .text -j .data -O ihex main.elf main.hex
