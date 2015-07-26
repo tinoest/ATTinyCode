@@ -35,6 +35,8 @@ void WatchdogSleep::init(uint8_t sleepMode)
 
 void WatchdogSleep::sleep(uint8_t sleepTime)
 {
+	uint8_t oldSREG = SREG; // Store SREG
+	sei(); // turn interrupts on
 
   do {
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);             // select the watchdog timer mode
@@ -44,6 +46,7 @@ void WatchdogSleep::sleep(uint8_t sleepTime)
   } 
   while(_watchdogCounter < sleepTime);
 
+	SREG = oldSREG; // restore SREG
   _watchdogCounter = 0;
 
 }
