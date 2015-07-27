@@ -4,12 +4,16 @@
 
 #include "WatchdogSleep.h"
 
+volatile bool _watchdogOverrunFlag;
 volatile uint8_t _watchdogCounter;
 
 WatchdogSleep::WatchdogSleep(void) 
 {
 
-	_watchdogCounter = 0;
+	// Initialise the variables
+	_watchdogOverrunFlag	= 0;
+	_watchdogCounter			= 0;
+
 }
 
 
@@ -39,6 +43,7 @@ void WatchdogSleep::sleep(uint8_t sleepTime)
 	sei(); // turn interrupts on
 
   do {
+		_watchdogOverrunFlag	= 0;
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);             // select the watchdog timer mode
     sleep_enable();                                  // enable the sleep mode ready for use
     sleep_mode();                                    // trigger the sleep
@@ -47,12 +52,20 @@ void WatchdogSleep::sleep(uint8_t sleepTime)
   while(_watchdogCounter < sleepTime);
 
 	SREG = oldSREG; // restore SREG
-  _watchdogCounter = 0;
+  _watchdogCounter			= 0;
+	_watchdogOverrunFlag	= 0;
 
 }
 
 ISR(WDT_vect) {
-  _watchdogCounter++;
+	
+	if(_watchdogOverrunFlag  == 0) { 
+		_watchdogCounter++;
+		_watchdogOverrunFlag = 1;
+	} 
+	else {
+		// Watchdog overrun reset MCU
+	}
 }
 
 

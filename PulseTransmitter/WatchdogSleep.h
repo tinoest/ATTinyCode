@@ -41,6 +41,7 @@ public:
   void init(uint8_t sleepMode);
   void sleep(uint8_t sleepTime);
 private:
+
 };
 
 #endif
