@@ -24,6 +24,8 @@ PA6  7|    |8   PA5
 #include <stdlib.h>
 #include <stdint.h>
 #include <util/delay.h>
+#include <avr/power.h>
+#include <util/atomic.h>
 
 #include "RFM12.h"
 #include "WatchdogSleep.h"
@@ -52,6 +54,18 @@ volatile uint16_t pulse;
 
 //ATTiny84
 #define SS_BIT      1
+
+//#define MS_DEBOUNCE
+
+#if defined(MS_DEBOUNCE)
+
+void millis_init();
+uint32_t millis();
+#define DEBOUNCE    5 // 5ms debounce
+uint32_t milliSeconds;
+uint32_t millisLast;
+
+#endif
 
 // Enable the Watchdog Sleep
 WatchdogSleep sleep;
@@ -93,6 +107,10 @@ int main()
 	pulse  = 0;
 	sei(); // Enable interrupts
 
+#if defined(MS_DEBOUNCE)
+	millis_init();
+#endif
+
 	for(;;) 
 	{
 
@@ -121,11 +139,15 @@ int main()
 ISR (PCINT1_vect) 
 { 
 	if (PINB & (1<<PB0)) { // detect rising edge 
+#if defined(MS_DEBOUNCE)
+		if(millisLast - millis() > DEBOUNCE) {
+			pulse++;
+			millisLast = millis();
+		}
+#else 
 		pulse++;
 		_delay_ms(20); //simple debounce, should really be on a timer and not a delay 
-	} 
-	else { // detect falling edge 
-		_delay_ms(20); // simple debounce, should really be on a timer and not a delay 
+#endif	
 	} 
 } 
 
@@ -215,3 +237,34 @@ void sinit() {
 //--------------------------------------------------------------------------------------------------
 
 
+#if defined(MS_DEBOUNCE)
+
+void millis_init()
+{
+
+	TCCR0A	= (1 << WGM01);								// CTC mode
+  TCCR0B	|= (1<<CS01);									// System Clock /8
+	OCR0A		= (uint8_t)((F_CPU/8) * 0.001) - 1;		// 1ms compare value
+	TIMSK0	|= (1<<OCIE0A);								// interrupt
+
+  sei();
+
+}
+
+uint32_t millis() 
+{
+
+	uint32_t ms;
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		ms = milliSeconds;
+	}
+
+	return ms;
+
+}
+
+ISR(TIM0_OVF_vect) {
+    ++milliSeconds;
+}
+
+#endif
