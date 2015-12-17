@@ -50,7 +50,7 @@ void sputchar(uint8_t c);
 
 #endif
 
-volatile uint16_t pulse;
+volatile uint32_t pulse;
 
 //ATTiny84
 #define SS_BIT      1
@@ -74,7 +74,7 @@ WatchdogSleep sleep;
 RFM12 radio(SS_BIT);
 
 typedef struct {
-	uint16_t pulse;
+	uint32_t pulse;
 	int16_t tmpC;
 	int16_t supplyV;	// Supply voltage
 } 
@@ -122,7 +122,7 @@ int main()
 
 #if defined(DEBUG)
 		tmp[0] = '\0';
-		sprintf(tmp,"Count %i Supply %i TmpC %i\n", pulse , temptx.supplyV , temptx.tmpC);
+		sprintf(tmp,"Pulse %lu Supply %i TmpC %i\n", pulse , temptx.supplyV , temptx.tmpC);
 		sputs(tmp);
 #endif
 

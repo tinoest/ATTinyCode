@@ -46,6 +46,17 @@ void WatchdogSleep::sleep(uint8_t sleepTime)
   _watchdogCounter = 0;
 
 }
+void WatchdogSleep::enable(void) {
+    wdt_enable();
+}
+
+void WatchdogSleep::reset(void) {
+    wdt_reset();
+}
+
+void WatchdogSleep::disable(void) {
+    wdt_disable();
+}
 
 ISR(WDT_vect) {
   _watchdogCounter++;

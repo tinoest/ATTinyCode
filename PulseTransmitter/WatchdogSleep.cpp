@@ -16,7 +16,6 @@ WatchdogSleep::WatchdogSleep(void)
 
 }
 
-
 //--------------------------------------------------------------------------------------------------
 // Sleep Configuration 
 //-------------------------------------------------------------------------------------------------
@@ -56,6 +55,23 @@ void WatchdogSleep::sleep(uint8_t sleepTime)
 	_watchdogOverrunFlag	= 0;
 
 }
+
+void WatchdogSleep::enable(uint8_t resetTime) 
+{
+    wdt_enable(resetTime);
+}
+
+void WatchdogSleep::reset() 
+{
+    wdt_reset();
+}
+
+void WatchdogSleep::disable() 
+{
+    wdt_disable();
+}
+
+
 
 ISR(WDT_vect) {
 	

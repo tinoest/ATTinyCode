@@ -40,8 +40,10 @@ public:
   WatchdogSleep(void);
   void init(uint8_t sleepMode);
   void sleep(uint8_t sleepTime);
+	void reset(void);
+	void enable(uint8_t resetTime);
+	void disable(void);
 private:
 
 };
-
 #endif
